@@ -10,14 +10,42 @@ from flask import Flask, request
 with open('user_data.json', 'r', encoding='utf-8') as f:
     USER_DATA = json.load(f)
 
+LIVE = True
 INDEX_URL = 'https://raw.githubusercontent.com/TheBenefactour/emcsabrowser/main/indexed_stories.json'
 ROOT = 'http://localhost:5000/'
+TAGS_LIST = '<p><fieldset name=tags><h1>Tags:</h1>' \
+            '<p><input type="checkbox" name="md" value="md "/><label for="md">Male Dominant</label>' \
+            '<input type="checkbox" name="fd" value="fd" /><label for="fd">Female Dominant</label>' \
+            '<input type="checkbox" name="ca" value="ca" /><label for="ca">Cannibalism</label></p><p>' \
+            '<input type="checkbox" name="cb" value="cb" /><label for="cb">Comic Book: Super-hero/heroine</label>' \
+            '<input type="checkbox" name="ds" value="ds" /><label for="ds">Dominance and/or Submission</label>' \
+            '<input type="checkbox" name="ff" value="ff" /><label for="ff">Female/Female Sex</label></p><p>' \
+            '<input type="checkbox" name="ft" value="ft" /><label for="ft">Fetish</label>' \
+            '<input type="checkbox" name="fu" value="fu" /><label for="fu">Furry</label>' \
+            '<input type="checkbox" name="gr" value="gr" />' \
+            '<label for="gr">Growth/Enlargement of Bodies and Parts</label>' \
+            '</p><p><input type="checkbox" name="hm" value="hm" /><label for="hm">Humiliation</label>' \
+            '<input type="checkbox" name="hu" value="hu" /><label for="hu">Humor</label>' \
+            '<input type="checkbox" name="in" value="in" /><label for="in">Incest</label></p><p>' \
+            '<input type="checkbox" name="la" value="la" /><label for="la">Lactation</label>' \
+            '<input type="checkbox" name="ma" value="ma" /><label for="ma">Masturbation</label>' \
+            '<input type="checkbox" name="mc" value="mc" /><label for="mc">Mind Control</label></p><p>' \
+            '<input type="checkbox" name="mf" value="mf" /><label for="mf">Male/Female Sex</label>' \
+            '<input type="checkbox" name="mm" value="mm" /><label for="ex">Male/Male Sex</label>' \
+            '<input type="checkbox" name="nc" value="nc" /><label for="nc">Non-consensual</label></p><p>' \
+            '<input type="checkbox" name="rb" value="rb" /><label for="ex">Robots</label>' \
+            '<input type="checkbox" name="sc" value="sc" /><label for="sc">Scatology</label>' \
+            '<input type="checkbox" name="sf" value="sf" /><label for="sf">Science Fiction</label></p><p>' \
+            '<input type="checkbox" name="ts" value="ts" /><label for="ts">Time Stop</label>' \
+            '<input type="checkbox" name="ws" value="ws" /><label for="ws">Watersports</label>' \
+            '</p></fieldset></p>'
+TAGS = ['bd', 'be', 'ca', 'cb', 'ds', 'ex', 'fd', 'ff', 'ft', 'fu', 'gr', 'hm', 'hu', 'in', 'la', 'ma', 'mc', 'md',
+        'mf', 'mm', 'nc', 'rb', 'sc', 'sf', 'ts', 'ws']
 
 app = Flask(__name__)
 webbrowser.open(ROOT)
-live = True
 
-if live:
+if LIVE:
     r = requests.request('HEAD', INDEX_URL)
     etag = r.headers['ETag']
     if etag != USER_DATA['updated']:
@@ -129,31 +157,43 @@ def select_random_story(tag=None):
 def search():
     try:
         term = request.form['query']
-        if term != '':
-            out_list = f'<div><form method="post"><input type="text" name="query">' \
-                       f'<input type="submit" label="Submit"></form></div>' \
-                       f'<div><p>Searching for: "{term}"</p></div><form method="post">' \
-                       f'<div style="position:fixed; background-color:white; width:100%"><p>' \
-                       f'<input type="submit" value="Add selected to favorites."></p></div>' \
-                       f'<div style="padding-top: 50px">'
+        tags = []
+        for i in request.form:
+            if i != 'query':
+                tags.append(i)
+        temp_list = []
+        if len(tags) == 0:
+            tags = 'all'
+            temp_list = STORY_DATA
+        else:
             for i in STORY_DATA:
-                try:
-                    story_added = False
-                    for t in term.split(' '):
-                        if t in i or t in STORY_DATA[i]['description'] and not story_added:
-                            out_list += f'<div><input type="checkbox" id="{i}" name="{i}" value="{i}">' + \
-                                        get_story_string(i) + '</div><hr class="dotted">'
-                            story_added = True
-                except KeyError:
-                    pass
-            if out_list:
-                return out_list + '</form>'
+                if set(STORY_DATA[i]['story tags']).intersection(tags):
+                    temp_list.append(i)
+        out_list = f'<div><form method="post"><input type="text" name="query">' \
+                   f'<input type="submit" label="Submit"></form></div>' \
+                   f'<div><p>Searching for: "{term}" with {tags} tags</p></div><form method="post">' \
+                   f'<div style="position:fixed; background-color:white; width:100%"><p>' \
+                   f'<input type="submit" value="Add selected to favorites."></p></div>' \
+                   f'<div style="padding-top: 50px">'
+        for i in temp_list:
+            try:
+                story_added = False
+                for t in term.split(' '):
+                    if t in i or t in STORY_DATA[i]['description'] and not story_added:
+                        out_list += f'<div><input type="checkbox" id="{i}" name="{i}" value="{i}">' + \
+                                    get_story_string(i) + '</div><hr class="dotted">'
+                        story_added = True
+            except KeyError:
+                pass
+        if out_list:
+            return out_list + '</form>'
     except Exception as e:
         out_list = []
         for i in request.form:
             out_list.append(i)
         add_favorites(out_list)
-        return '<form method="post"><input type="text" name="query"><input type="submit" label="Submit"></div></form>'
+        return f'<form method="post"><p><input type="text" name="query" /><input type="submit" label="Submit" /></p>' \
+               f'{TAGS_LIST}</div></form>'
 
 
 @app.route('/favorites')
