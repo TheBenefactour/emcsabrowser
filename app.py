@@ -14,7 +14,7 @@ LIVE = True
 INDEX_URL = 'https://raw.githubusercontent.com/TheBenefactour/emcsabrowser/main/indexed_stories.json'
 ROOT = 'http://localhost:5000/'
 TAGS_LIST_ADD = '<p><fieldset name=tags><h2>Include Tags:</h2>' \
-            '<p><input type="checkbox" name="md" value="md "/><label for="md">Male Dominant</label>' \
+            '<p><input type="checkbox" name="md" value="md"/><label for="md">Male Dominant</label>' \
             '<input type="checkbox" name="fd" value="fd" /><label for="fd">Female Dominant</label>' \
             '<input type="checkbox" name="ca" value="ca" /><label for="ca">Cannibalism</label></p><p>' \
             '<input type="checkbox" name="cb" value="cb" /><label for="cb">Comic Book: Super-hero/heroine</label>' \
