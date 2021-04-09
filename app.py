@@ -5,7 +5,7 @@ import random
 import re
 import webbrowser
 import requests
-from flask import Flask, request
+from flask import Flask, request, render_template
 
 with open('user_data.json', 'r', encoding='utf-8') as f:
     USER_DATA = json.load(f)
@@ -13,64 +13,14 @@ with open('user_data.json', 'r', encoding='utf-8') as f:
 LIVE = True
 INDEX_URL = 'https://raw.githubusercontent.com/TheBenefactour/emcsabrowser/main/indexed_stories.json'
 ROOT = 'http://localhost:5000/'
-TAGS_LIST_ADD = '<p><fieldset name=tags><h2>Include Tags:</h2>' \
-            '<p><input type="checkbox" name="md" value="md"/><label for="md">Male Dominant</label>' \
-            '<input type="checkbox" name="fd" value="fd" /><label for="fd">Female Dominant</label>' \
-            '<input type="checkbox" name="ca" value="ca" /><label for="ca">Cannibalism</label></p><p>' \
-            '<input type="checkbox" name="cb" value="cb" /><label for="cb">Comic Book: Super-hero/heroine</label>' \
-            '<input type="checkbox" name="ds" value="ds" /><label for="ds">Dominance and/or Submission</label>' \
-            '<input type="checkbox" name="ff" value="ff" /><label for="ff">Female/Female Sex</label></p><p>' \
-            '<input type="checkbox" name="ft" value="ft" /><label for="ft">Fetish</label>' \
-            '<input type="checkbox" name="fu" value="fu" /><label for="fu">Furry</label>' \
-            '<input type="checkbox" name="gr" value="gr" />' \
-            '<label for="gr">Growth/Enlargement of Bodies and Parts</label>' \
-            '</p><p><input type="checkbox" name="hm" value="hm" /><label for="hm">Humiliation</label>' \
-            '<input type="checkbox" name="hu" value="hu" /><label for="hu">Humor</label>' \
-            '<input type="checkbox" name="in" value="in" /><label for="in">Incest</label></p><p>' \
-            '<input type="checkbox" name="la" value="la" /><label for="la">Lactation</label>' \
-            '<input type="checkbox" name="ma" value="ma" /><label for="ma">Masturbation</label>' \
-            '<input type="checkbox" name="mc" value="mc" /><label for="mc">Mind Control</label></p><p>' \
-            '<input type="checkbox" name="mf" value="mf" /><label for="mf">Male/Female Sex</label>' \
-            '<input type="checkbox" name="mm" value="mm" /><label for="ex">Male/Male Sex</label>' \
-            '<input type="checkbox" name="nc" value="nc" /><label for="nc">Non-consensual</label></p><p>' \
-            '<input type="checkbox" name="rb" value="rb" /><label for="ex">Robots</label>' \
-            '<input type="checkbox" name="sc" value="sc" /><label for="sc">Scatology</label>' \
-            '<input type="checkbox" name="sf" value="sf" /><label for="sf">Science Fiction</label></p><p>' \
-            '<input type="checkbox" name="ts" value="ts" /><label for="ts">Time Stop</label>' \
-            '<input type="checkbox" name="ws" value="ws" /><label for="ws">Watersports</label>' \
-            '</p></fieldset></p>'
-TAGS_LIST_REM = '<p><fieldset name=tags-rem><h2>Exclude Tags:</h2>' \
-            '<p><input type="checkbox" name="md-rem" value="md-rem"/><label for="md-rem">Male Dominant</label>' \
-            '<input type="checkbox" name="fd-rem" value="fd-rem" /><label for="fd-rem">Female Dominant</label>' \
-            '<input type="checkbox" name="ca-rem" value="ca-rem" /><label for="ca-rem">Cannibalism</label></p><p>' \
-            '<input type="checkbox" name="cb-rem" value="cb-rem" />' \
-            '<label for="cb-rem">Comic Book: Super-hero/heroine</label>' \
-            '<input type="checkbox" name="ds-rem" value="ds-rem" />' \
-            '<label for="ds-rem">Dominance and/or Submission</label>' \
-            '<input type="checkbox" name="ff-rem" value="ff-rem" />' \
-            '<label for="ff-rem">Female/Female Sex</label></p><p>' \
-            '<input type="checkbox" name="ft-rem" value="ft-rem" /><label for="ft-rem">Fetish</label>' \
-            '<input type="checkbox" name="fu-rem" value="fu-rem" /><label for="fu-rem">Furry</label>' \
-            '<input type="checkbox" name="gr-rem" value="gr-rem" />' \
-            '<label for="gr-rem">Growth/Enlargement of Bodies and Parts</label>' \
-            '</p><p><input type="checkbox" name="hm-rem" value="hm-rem" /><label for="hm-rem">Humiliation</label>' \
-            '<input type="checkbox" name="hu-rem" value="hu-rem" /><label for="hu-rem">Humor</label>' \
-            '<input type="checkbox" name="in-rem" value="in-rem" /><label for="in-rem">Incest</label></p><p>' \
-            '<input type="checkbox" name="la-rem" value="la-rem" /><label for="la-rem">Lactation</label>' \
-            '<input type="checkbox" name="ma-rem" value="ma-rem" /><label for="ma-rem">Masturbation</label>' \
-            '<input type="checkbox" name="mc-rem" value="mc-rem" /><label for="mc-rem">Mind Control</label></p><p>' \
-            '<input type="checkbox" name="mf-rem" value="mf-rem" /><label for="mf-rem">Male/Female Sex</label>' \
-            '<input type="checkbox" name="mm-rem" value="mm-rem" /><label for="ex-rem">Male/Male Sex</label>' \
-            '<input type="checkbox" name="nc-rem" value="nc-rem" /><label for="nc-rem">Non-consensual</label></p><p>' \
-            '<input type="checkbox" name="rb-rem" value="rb-rem" /><label for="ex-rem">Robots</label>' \
-            '<input type="checkbox" name="sc-rem" value="sc-rem" /><label for="sc-rem">Scatology</label>' \
-            '<input type="checkbox" name="sf-rem" value="sf-rem" /><label for="sf-rem">Science Fiction</label></p><p>' \
-            '<input type="checkbox" name="ts-rem" value="ts-rem" /><label for="ts-rem">Time Stop</label>' \
-            '<input type="checkbox" name="ws-rem" value="ws-rem" /><label for="ws-rem">Watersports</label>' \
-            '</p></fieldset></p>'
-TAGS = ['bd', 'be', 'ca', 'cb', 'ds', 'ex', 'fd', 'ff', 'ft', 'fu', 'gr', 'hm', 'hu', 'in', 'la', 'ma', 'mc', 'md',
-        'mf', 'mm', 'nc', 'rb', 'sc', 'sf', 'ts', 'ws']
-TAGS_REM = [f'{i}-rem' for i in TAGS]
+TAGS_DICT = {'bd': 'Bondage and/or Discipline', 'be': 'Bestiality', 'ca': 'Cannibalism',
+             'cb': 'Comic Book: Super-hero/heroine', 'ds': 'Dominance and/or Submission', 'ex': 'Exhibitionism',
+             'fd': 'Female Dominant', 'ff': 'Female/Female Sex', 'ft': 'Fetish', 'fu': 'Furry',
+             'gr': 'Growth/Enlargement of Bodies and Parts', 'hm': 'Humiliation', 'hu': 'Humiliation', 'in': 'Incest',
+             'la': 'Lactation', 'ma': 'Masturbation', 'mc': 'Mind Control', 'md': 'Male Dominant',
+             'mf': 'Male/Female Sex', 'mm': 'Male/Male Sex', 'nc': 'Non-Consensual', 'rb': 'Robots', 'sc': 'Scatology',
+             'sf': 'Science Fiction', 'ts': 'Time Stop', 'ws': 'Watersports'}
+TAGS_REM = [f'{i}-rem' for i in TAGS_DICT]
 
 app = Flask(__name__)
 webbrowser.open(ROOT)
@@ -100,8 +50,7 @@ with open('indexed_stories.json', 'r', encoding='utf-8') as f:
 
 @app.route('/')
 def app_root():
-    return f'<span><p><a href=/list>List</a></p><p><a href=/random>Random</a></p>' \
-           f'<p><a href=/search>Search</a></p><p><a href=/favorites>Favorites</a></p></span>'
+    return render_template('main.html')
 
 
 def add_favorites(favorites_to_add):
@@ -119,19 +68,7 @@ def list_stories():
     except KeyError:
         USER_DATA.update({'favorites': []})
     add_favorites(favorites_to_add)
-
-    out_list = '<div><form method="post"><div style="position:fixed; background-color:white; width:100%">' \
-               '<p><input type="submit" value="Add selected to favorites."></p></div><div style="padding-top: 50px">'
-    cur = 0
-    for i in STORY_DATA:
-        if i in USER_DATA['favorites']:
-            out_list += f'<p><input type="checkbox" id="story{cur}" name="{i}" value="{i}"><label for="story{cur}">' \
-                        f'<a href={i} style="background-color: yellow">{i}</a></label></p>'
-        else:
-            out_list += f'<p><input type="checkbox" id="story{cur}" name="{i}" value="{i}"><label for="story{cur}">' \
-                        f'<a href={i}>{i}</a></label></p>'
-        cur += 1
-    return out_list + '</div></form></div>'
+    return render_template('list.html', data=STORY_DATA, favorites=USER_DATA['favorites'])
 
 
 def list_files():
@@ -173,14 +110,10 @@ def list_files():
 
 
 @app.route('/random', methods=['GET', 'POST'])
-def select_random_story(tag=None):
+def select_random_story():
     story = random.choice(list(STORY_DATA))
-    data = STORY_DATA[story]
-    out_chapters = get_chapters_string(data)
-    out = get_story_string(story, data, out_chapters)
-    if tag:
-        out += '<p>Tag restrictions not yet implemented</p>'  # TODO
-    return out
+    return render_template('random_story.html', data=STORY_DATA,
+                           i=[story, STORY_DATA[story]["author url"].split("/")[-1]])
 
 
 @app.route('/search', methods=['GET', 'POST'])
@@ -190,38 +123,33 @@ def search():
         tags = []
         tags_rem = []
         for i in request.form:
-            if i in TAGS:
+            if i in TAGS_DICT:
                 tags.append(i)
             elif i in TAGS_REM:
                 tags_rem.append(i)
+        tags_rem_form = [i[0:2] for i in tags_rem]
+        if len(tags_rem) == 0:
+            tags_rem_form = 'none'
         tags, temp_list = filter_story_list_by_tags(tags, tags_rem)
-        out_list = f'<div><form method="post"><input type="text" name="query">' \
-                   f'<input type="submit" label="Submit"></form></div>' \
-                   f'<div><p>Searching for: "{term}" including {tags} tags and excluding {[i[0:2] for i in tags_rem]}' \
-                   f'</p></div><form method="post">' \
-                   f'<div style="position:fixed; background-color:white; width:100%"><p>' \
-                   f'<input type="submit" value="Add selected to favorites."></p></div>' \
-                   f'<div style="padding-top: 50px">'
+        out_list = []
         for i in temp_list:
             try:
                 story_added = False
                 for t in term.split(' '):
                     if t in i or t in STORY_DATA[i]['description'] and not story_added:
-                        out_list += f'<div><input type="checkbox" id="{i}" name="{i}" value="{i}">' \
-                                    f'<label for="{i}">Add to favorites</label>' + \
-                                    get_story_string(i) + '</div><hr class="dotted">'
+                        out_list.append([i, STORY_DATA[i]["author url"].split("/")[-1]])
                         story_added = True
             except KeyError:
                 pass
         if out_list:
-            return out_list + '</form>'
+            return render_template('search_results.html', term=term, tags=tags, tags_rem=tags_rem_form,
+                                   results=out_list, data=STORY_DATA)
     except Exception:
         out_list = []
         for i in request.form:
             out_list.append(i)
         add_favorites(out_list)
-        return f'<form method="post"><p><input type="text" name="query" /><input type="submit" label="Submit" /></p>' \
-               f'<fieldset><h1>Tags</h1>{TAGS_LIST_ADD}{TAGS_LIST_REM}</div></form>'
+        return render_template('search.html', tags=TAGS_DICT)
 
 
 def filter_story_list_by_tags(tags, tags_rem):
@@ -240,13 +168,13 @@ def filter_story_list_by_tags(tags, tags_rem):
 
 @app.route('/favorites')
 def favorites():
-    out = ''
+    out = []
     try:
         temp = USER_DATA['favorites']
         temp.sort()
         for i in temp:
-            out += f'<p>{get_story_string(i)}<p><hr class="dotted">'
-        return out
+            out.append([i, STORY_DATA[i]["author url"].split("/")[-1]])
+        return render_template('favorites.html', data=STORY_DATA, favorites=out)
     except KeyError:
         return "No favorites found."
 

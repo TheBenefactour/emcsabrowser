@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>List of All Stories</title>
+</head>
+<body>
+    <div>
+        <form method="post">
+            <div style="position:fixed; background-color:white; width:100%">
+                <p>
+                    <input type="submit" value="Add selected to favorites.">
+                </p>
+            </div>
+            <div style="padding-top: 50px">
+                {% for i in data %}
+                {% if i in favorites %}
+                <p>
+                    <input type="checkbox" id="{{ i }}" name="{{ i }}" value="{{ i }}">
+                    <label for="{{ i }}">
+                        <a href={{ i }} style="background-color: yellow">{{ i }}</a>
+                    </label>
+                </p>
+                {% else %}
+                <p>
+                    <input type="checkbox" id="{{ i }}" name="{{ i }}" value="{{ i }}">
+                    <label for="{{ i }}">
+                        <a href={{ i }}>{{ i }}</a>
+                    </label>
+                </p>
+                {% endif %}
+                {% endfor %}
+</body>
+</html>

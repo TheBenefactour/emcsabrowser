@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Search</title>
+</head>
+<body>
+<form method="post">
+    <p>
+        <input type="text" name="query">
+        <input type="submit" label="Submit">
+    </p>
+    <fieldset>
+        <h1>Tags</h1>
+        <fieldset name="tags">
+            <h2>Include Tags:</h2>
+            {% for tag in tags %}
+            <p>
+                <input type="checkbox" name="{{ tag }}" value="{{ tag }}"><label for="{{ tag }}">{{ tags[tag] }}</label>
+            </p>
+            {% endfor %}
+        </fieldset>
+        <fieldset name="tags-rem">
+            <h2>Exclude Tags:</h2>
+            {% for tag in tags %}
+            <p>
+                <input type="checkbox" name="{{ tag }}-rem" value="{{ tag }}-rem"><label for="{{ tag }}-rem">{{ tags[tag] }}</label>
+            </p>
+            {% endfor %}
+        </fieldset>
+    </fieldset>
+</form>
+</body>
+</html>
