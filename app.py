@@ -51,6 +51,9 @@ def update_user_data():
 update_user_data()
 with open('indexed_stories.json', 'r', encoding='utf-8') as f:
     STORY_DATA = json.load(f)
+if os.path.exists('archived_stories.json'):
+    with open('archived_stories.json', 'r', encoding='utf-8') as f:
+        STORY_DATA.update(json.load(f))
 
 
 @app.route('/')
@@ -144,20 +147,27 @@ def search():
             if request.form.get('cached'):
                 files = list_files('templates\\cache')
                 for file in files:
-                    with open(file, 'r', encoding='utf-8') as g:
-                        data = g.read()
-                    for t in term.split(' '):
-                        if t in data.lower():
-                            file_parts = file.split("\\")
-                            story_id = f'https://mcstories.com/{file_parts[1]}/index.html'
-                            author = STORY_DATA[story_id]["author url"].split("/")[-1]
-                            if [story_id, author] not in out_list:
-                                out_list.append([story_id, author])
+                    try:
+                        with open(file, 'r', encoding='utf-8') as g:
+                            data = g.read()
+                        for t in term.split(' '):
+                            if t in data.lower():
+                                file_parts = file.split("\\")
+                                story_id = f'https://mcstories.com/{file_parts[2]}/index.html'
+                                author = STORY_DATA[story_id]["author url"].split("/")[-1]
+                                if [story_id, author] not in out_list:
+                                    if set(STORY_DATA[story_id]['story tags']).intersection(tags) != set() or tags == 'all':
+                                        if set(STORY_DATA[story_id]['story tags']).intersection(tags_rem_form) == set() or tags_rem_form == 'none':
+                                            out_list.append([story_id, author])
+                    except:
+                        pass
             if out_list:
                 out_list.sort()
                 last_search = render_template('search_results.html', term=term, tags=tags, tags_rem=tags_rem_form,
                                               results=out_list, data=STORY_DATA)
                 return last_search
+            else:
+                return 'No results'
         except:
             for i in request.form:
                 if i != 'query' or i != 'cached':
