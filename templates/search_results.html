@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>Results for {{ term }}</title>
+    <script src="https://code.jquery.com/jquery-3.5.1.js"
+          integrity="sha256-QWo7LDvxbWT2tbbQ97B53yJnYU3WhH/C8ycbRAkjPDc="
+          crossorigin="anonymous"></script>
 </head>
 <body>
     <div>
@@ -27,6 +30,9 @@
             <div>
                 <input type="checkbox" id="{{ i[0] }}" name="{{ i[0] }}" value="{{ i[0] }}">
                 <label for="{{ i[0] }}">Add to favorites</label>
+                <form method="post" class="cache">
+                    <button type="submit" name="{{ i[0] }}" id="{{ i[0] }}-cache">Cache Story</button>
+                </form>
                 <p>
                     <a href={{ i[0] }}>{{ i[0] }}</a>
                 </p>
@@ -46,6 +52,23 @@
                 <p>Date Updated: {{ data[i[0]]["date updated"] }}</p>
                 <p>Summary: {{ data[i[0]]["description"] }}</p>
             </div>
+            <script type="text/javascript">
+                $(document).on('submit','.cache',function(e)
+                {
+                e.preventDefault();
+                $.ajax({
+                    type:'POST',
+                    url:'/search',
+                    data:{
+                        cache:("cache", $("#{{ i[0] }}-cache").val())
+                    },
+                    success:function()
+                    {
+                      alert('saved');
+                    }
+                  })
+                });
+            </script>
             <hr class="dotted">
             {% endif %}
             {% endfor %}

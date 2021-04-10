@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }} - Dates Cached</title>
+</head>
+<body>
+    {% for date in dates %}
+    <p>
+        <a href="/cache/{{ title }}/{{ date }}">{{ date }}</a>
+    </p>
+    {% endfor %}
+</body>
+</html>

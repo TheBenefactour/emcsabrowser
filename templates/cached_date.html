@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }} Cached on {{ date }}</title>
+</head>
+<body>
+    {% for file in files %}
+    <p>
+        <a href="/cache/{{ title }}/{{ date }}/{{ file }}">{{ file }}</a>
+    </p>
+    {% endfor %}
+</body>
+</html>

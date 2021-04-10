@@ -10,8 +10,8 @@ from flask import Flask, request, render_template
 
 with open('user_data.json', 'r', encoding='utf-8') as f:
     USER_DATA = json.load(f)
-if not os.path.exists('cache\\'):
-    os.mkdir('cache\\')
+if not os.path.exists('templates\\cache\\'):
+    os.mkdir('templates\\cache\\')
 
 LIVE = True
 INDEX_URL = 'https://raw.githubusercontent.com/TheBenefactour/emcsabrowser/main/indexed_stories.json'
@@ -142,16 +142,17 @@ def search():
                 except KeyError:
                     pass
             if request.form.get('cached'):
-                files = list_files('cache')
+                files = list_files('templates\\cache')
                 for file in files:
                     with open(file, 'r', encoding='utf-8') as g:
                         data = g.read()
-                    if t in data.lower():
-                        file_parts = file.split("\\")
-                        story_id = f'https://mcstories.com/{file_parts[1]}/index.html'
-                        author = STORY_DATA[story_id]["author url"].split("/")[-1]
-                        if [story_id, author] not in out_list:
-                            out_list.append([story_id, author])
+                    for t in term.split(' '):
+                        if t in data.lower():
+                            file_parts = file.split("\\")
+                            story_id = f'https://mcstories.com/{file_parts[1]}/index.html'
+                            author = STORY_DATA[story_id]["author url"].split("/")[-1]
+                            if [story_id, author] not in out_list:
+                                out_list.append([story_id, author])
             if out_list:
                 out_list.sort()
                 last_search = render_template('search_results.html', term=term, tags=tags, tags_rem=tags_rem_form,
@@ -160,7 +161,7 @@ def search():
         except:
             for i in request.form:
                 if i != 'query' or i != 'cached':
-                    cache_path = f'cache\\{i.split("/")[-2]}\\'
+                    cache_path = f'templates\\cache\\{i.split("/")[-2]}\\'
                     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S\\")
                     if not os.path.exists(cache_path):
                         os.mkdir(cache_path)
@@ -226,3 +227,46 @@ def get_chapters_string(data):
     for i in chapters:
         out_chapters += i
     return out_chapters
+
+
+@app.route('/cache')
+def cached_list():
+    cached_files = list_files('templates\\cache')
+    stories = set()
+    for file in cached_files:
+        stories.add(file.split('\\')[2])
+    return render_template('cache.html', stories=stories)
+
+
+@app.route('/cache/<title>')
+def cached_story(title):
+    if title:
+        cached_files = list_files(f'templates\\cache\\{title}')
+        dates = set()
+        for file in cached_files:
+            dates.add(file.split('\\')[3])
+        return render_template('cached_story.html', dates=dates, title=title)
+    else:
+        return 'Missing story parameter'
+
+
+@app.route('/cache/<title>/<date>')
+def cached(title, date):
+    if title and date:
+        cached_files = list_files(f'templates\\cache\\{title}\\{date}')
+        files = set()
+        for file in cached_files:
+            files.add(file.split('\\')[-1])
+        return render_template('cached_date.html', title=title, date=date, files=files)
+    else:
+        return 'Missing date parameter'
+
+
+@app.route('/cache/<title>/<date>/<file>')
+def cached_view(title, date, file):
+    if title and date and file:
+        with open(f'templates\\cache\\{title}\\{date}\\{file}', 'rb') as g:
+            data = g.read().decode('utf-8')
+        return render_template('cached_file.html', data=data)
+    else:
+        return 'Missing file parameter'

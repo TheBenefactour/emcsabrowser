@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cached Stories</title>
+</head>
+<body>
+    {% for story in stories %}
+    <p>
+        <a href="/cache/{{ story }}">{{ story }}</a>
+    </p>
+    {% endfor %}
+</body>
+</html>
