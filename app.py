@@ -5,10 +5,13 @@ import random
 import re
 import webbrowser
 import requests
+import datetime
 from flask import Flask, request, render_template
 
 with open('user_data.json', 'r', encoding='utf-8') as f:
     USER_DATA = json.load(f)
+if not os.path.exists('cache\\'):
+    os.mkdir('cache\\')
 
 LIVE = True
 INDEX_URL = 'https://raw.githubusercontent.com/TheBenefactour/emcsabrowser/main/indexed_stories.json'
@@ -21,6 +24,8 @@ TAGS_DICT = {'bd': 'Bondage and/or Discipline', 'be': 'Bestiality', 'ca': 'Canni
              'mf': 'Male/Female Sex', 'mm': 'Male/Male Sex', 'nc': 'Non-Consensual', 'rb': 'Robots', 'sc': 'Scatology',
              'sf': 'Science Fiction', 'ts': 'Time Stop', 'ws': 'Watersports'}
 TAGS_REM = [f'{i}-rem' for i in TAGS_DICT]
+
+global last_search
 
 app = Flask(__name__)
 webbrowser.open(ROOT)
@@ -71,8 +76,7 @@ def list_stories():
     return render_template('list.html', data=STORY_DATA, favorites=USER_DATA['favorites'])
 
 
-def list_files():
-    location = 'chapters'
+def list_files(location):
     includes = ['*.html']  # for files only
     excludes = ['/none']  # for dirs and files
 
@@ -100,13 +104,7 @@ def list_files():
 
     iterate(location)
 
-    out_str = '<span>'
-    for g in file_list:
-        out_str += '<p>'
-        out_str += g.split('\\')[-1]
-        out_str += '</p>'
-    out_str += '</span>'
-    return out_str
+    return file_list
 
 
 @app.route('/random', methods=['GET', 'POST'])
@@ -118,33 +116,64 @@ def select_random_story():
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
-    try:
-        term = request.form['query']
-        tags = []
-        tags_rem = []
-        for i in request.form:
-            if i in TAGS_DICT:
-                tags.append(i)
-            elif i in TAGS_REM:
-                tags_rem.append(i)
-        tags_rem_form = [i[0:2] for i in tags_rem]
-        if len(tags_rem) == 0:
-            tags_rem_form = 'none'
-        tags, temp_list = filter_story_list_by_tags(tags, tags_rem)
-        out_list = []
-        for i in temp_list:
-            try:
-                story_added = False
-                for t in term.split(' '):
-                    if t in i or t in STORY_DATA[i]['description'] and not story_added:
-                        out_list.append([i, STORY_DATA[i]["author url"].split("/")[-1]])
-                        story_added = True
-            except KeyError:
-                pass
-        if out_list:
-            return render_template('search_results.html', term=term, tags=tags, tags_rem=tags_rem_form,
-                                   results=out_list, data=STORY_DATA)
-    except Exception:
+    if request.method == 'POST':
+        global last_search
+        try:
+            term = request.form.get('query')
+            tags = []
+            tags_rem = []
+            for i in request.form:
+                if i in TAGS_DICT:
+                    tags.append(i)
+                elif i in TAGS_REM:
+                    tags_rem.append(i)
+            tags_rem_form = [i[0:2] for i in tags_rem]
+            if len(tags_rem) == 0:
+                tags_rem_form = 'none'
+            tags, temp_list = filter_story_list_by_tags(tags, tags_rem)
+            out_list = []
+            for i in temp_list:
+                try:
+                    story_added = False
+                    for t in term.split(' '):
+                        if t in i.lower() or t in STORY_DATA[i]['description'].lower() and not story_added:
+                            out_list.append([i, STORY_DATA[i]["author url"].split("/")[-1]])
+                            story_added = True
+                except KeyError:
+                    pass
+            if request.form.get('cached'):
+                files = list_files('cache')
+                for file in files:
+                    with open(file, 'r', encoding='utf-8') as g:
+                        data = g.read()
+                    if t in data.lower():
+                        file_parts = file.split("\\")
+                        story_id = f'https://mcstories.com/{file_parts[1]}/index.html'
+                        author = STORY_DATA[story_id]["author url"].split("/")[-1]
+                        if [story_id, author] not in out_list:
+                            out_list.append([story_id, author])
+            if out_list:
+                out_list.sort()
+                last_search = render_template('search_results.html', term=term, tags=tags, tags_rem=tags_rem_form,
+                                              results=out_list, data=STORY_DATA)
+                return last_search
+        except:
+            for i in request.form:
+                if i != 'query' or i != 'cached':
+                    cache_path = f'cache\\{i.split("/")[-2]}\\'
+                    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H-%M-%S\\")
+                    if not os.path.exists(cache_path):
+                        os.mkdir(cache_path)
+                    os.mkdir(cache_path + timestamp)
+                    with open(cache_path + timestamp + 'index.html', 'wb') as g:
+                        data = requests.get(i)
+                        g.write(data.content)
+                    for chapter in STORY_DATA[i]['chapters']:
+                        with open(f'{cache_path}{timestamp}{chapter[0].split("/")[-1]}', 'wb') as g:
+                            data = requests.get(f'https://mcstories.com{chapter[0]}')
+                            g.write(data.content)
+                    return last_search
+    else:
         out_list = []
         for i in request.form:
             out_list.append(i)
