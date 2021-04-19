@@ -6,6 +6,7 @@ import re
 import webbrowser
 import requests
 import datetime
+from eldar import Query
 from flask import Flask, request, render_template
 
 with open('user_data.json', 'r', encoding='utf-8') as f:
@@ -110,11 +111,22 @@ def list_files(location):
     return file_list
 
 
-@app.route('/random', methods=['GET', 'POST'])
+@app.route('/random', methods=['GET'])
 def select_random_story():
-    story = random.choice(list(STORY_DATA))
-    return render_template('random_story.html', data=STORY_DATA,
-                           i=[story, STORY_DATA[story]["author url"].split("/")[-1]])
+    try:
+        tags = []
+        tags_rem = []
+        for i in request.args:
+            if i in TAGS_DICT:
+                tags.append(i)
+            elif i in TAGS_REM:
+                tags_rem.append(i)
+        tags, temp_list = filter_story_list_by_tags(tags, tags_rem)
+        story = random.choice(list(temp_list))
+        return render_template('random_story.html', data=STORY_DATA,
+                               i=[story, STORY_DATA[story]["author url"].split("/")[-1]], tags=TAGS_DICT)
+    except IndexError:
+        return "No results found for tags"
 
 
 @app.route('/search', methods=['GET', 'POST'])
@@ -125,6 +137,7 @@ def search():
             term = request.form.get('query')
             tags = []
             tags_rem = []
+            file_search = Query(term, ignore_case=True)
             for i in request.form:
                 if i in TAGS_DICT:
                     tags.append(i)
@@ -137,28 +150,28 @@ def search():
             out_list = []
             for i in temp_list:
                 try:
-                    story_added = False
-                    for t in term.split(' '):
-                        if t in i.lower() or t in STORY_DATA[i]['description'].lower() and not story_added:
-                            out_list.append([i, STORY_DATA[i]["author url"].split("/")[-1]])
-                            story_added = True
+                    story_data = STORY_DATA[i]['description'] + ' ' + i
+                    if file_search(story_data):
+                        out_list.append([i, STORY_DATA[i]["author url"].split("/")[-1]])
                 except KeyError:
                     pass
             if request.form.get('cached'):
                 files = list_files('templates\\cache')
                 for file in files:
                     try:
-                        with open(file, 'r', encoding='utf-8') as g:
-                            data = g.read()
-                        for t in term.split(' '):
-                            if t in data.lower():
-                                file_parts = file.split("\\")
-                                story_id = f'https://mcstories.com/{file_parts[2]}/index.html'
-                                author = STORY_DATA[story_id]["author url"].split("/")[-1]
-                                if [story_id, author] not in out_list:
-                                    if set(STORY_DATA[story_id]['story tags']).intersection(tags) != set() or tags == 'all':
-                                        if set(STORY_DATA[story_id]['story tags']).intersection(tags_rem_form) == set() or tags_rem_form == 'none':
-                                            out_list.append([story_id, author])
+                        file_parts = file.split("\\")
+                        story_id = f'https://mcstories.com/{file_parts[2]}/index.html'
+                        author = STORY_DATA[story_id]["author url"].split("/")[-1]
+                        if [story_id, author] not in out_list:
+                            if set(STORY_DATA[story_id]['story tags']).intersection(tags) != set() or tags == 'all':
+                                if set(STORY_DATA[story_id]['story tags']).intersection(
+                                        tags_rem_form) == set() or tags_rem_form == 'none':
+                                    with open(file, 'r', encoding='utf-8') as g:
+                                        story_data = g.read()
+                                    if file_search(story_data):
+                                        story_id = f'https://mcstories.com/{file_parts[2]}/index.html'
+                                        author = STORY_DATA[story_id]["author url"].split("/")[-1]
+                                        out_list.append([story_id, author])
                     except:
                         pass
             if out_list:
