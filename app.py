@@ -6,15 +6,24 @@ import re
 import webbrowser
 import requests
 import datetime
+from string import ascii_uppercase
 from eldar import Query
 from flask import Flask, request, render_template
+
+
+def update_user_data():
+    with open('user_data.json', 'w', encoding='utf-8') as g:
+        json.dump(USER_DATA, g)
+
 
 with open('user_data.json', 'r', encoding='utf-8') as f:
     USER_DATA = json.load(f)
 if not os.path.exists('templates\\cache\\'):
     os.mkdir('templates\\cache\\')
 
+
 LIVE = True
+ALPHA = ascii_uppercase
 INDEX_URL = 'https://raw.githubusercontent.com/TheBenefactour/emcsabrowser/main/indexed_stories.json'
 ROOT = 'http://localhost:5000/'
 TAGS_DICT = {'bd': 'Bondage and/or Discipline', 'be': 'Bestiality', 'ca': 'Cannibalism',
@@ -44,11 +53,6 @@ if LIVE:
         print('Database is up to date!')
 
 
-def update_user_data():
-    with open('user_data.json', 'w', encoding='utf-8') as g:
-        json.dump(USER_DATA, g)
-
-
 update_user_data()
 with open('indexed_stories.json', 'r', encoding='utf-8') as f:
     STORY_DATA = json.load(f)
@@ -62,13 +66,6 @@ def app_root():
     return render_template('main.html')
 
 
-def add_favorites(favorites_to_add):
-    new_favorites = [i for i in favorites_to_add if i not in USER_DATA['favorites']]
-    for i in new_favorites:
-        USER_DATA['favorites'].append(i)
-    update_user_data()
-
-
 @app.route('/list', methods=['GET', 'POST'])
 def list_stories():
     favorites_to_add = request.form
@@ -80,47 +77,10 @@ def list_stories():
     return render_template('list.html', data=STORY_DATA, favorites=USER_DATA['favorites'])
 
 
-def list_files(location):
-    includes = ['*.html']  # for files only
-    excludes = ['/none']  # for dirs and files
-
-    # transform glob patterns to regular expressions
-    includes = r'|'.join([fnmatch.translate(x) for x in includes])
-    excludes = r'|'.join([fnmatch.translate(x) for x in excludes]) or r'$.'
-    file_list = []
-
-    def iterate(directory):
-        for root, dirs, files in os.walk(directory):
-
-            # exclude dirs
-            dirs[:] = [os.path.join(root, d) for d in dirs]
-            dirs[:] = [d for d in dirs if not re.match(excludes, d)]
-            for d in dirs:
-                iterate(d)
-
-            # exclude/include files
-            files = [os.path.join(root, h) for h in files]
-            files = [h for h in files if not re.match(excludes, h)]
-            files = [h for h in files if re.match(includes, h)]
-
-            for filename in files:
-                file_list.append(filename)
-
-    iterate(location)
-
-    return file_list
-
-
 @app.route('/random', methods=['GET'])
 def select_random_story():
     try:
-        tags = []
-        tags_rem = []
-        for i in request.args:
-            if i in TAGS_DICT:
-                tags.append(i)
-            elif i in TAGS_REM:
-                tags_rem.append(i)
+        tags, tags_rem = get_tags_from_request(request.args)
         tags, temp_list = filter_story_list_by_tags(tags, tags_rem)
         story = random.choice(list(temp_list))
         return render_template('random_story.html', data=STORY_DATA,
@@ -138,16 +98,11 @@ def search():
             tags = []
             tags_rem = []
             file_search = Query(term, ignore_case=True)
-            for i in request.form:
-                if i in TAGS_DICT:
-                    tags.append(i)
-                elif i in TAGS_REM:
-                    tags_rem.append(i)
+            tags, temp_list = filter_stories_by_tags(tags, tags_rem)
+            out_list = []
             tags_rem_form = [i[0:2] for i in tags_rem]
             if len(tags_rem) == 0:
                 tags_rem_form = 'none'
-            tags, temp_list = filter_story_list_by_tags(tags, tags_rem)
-            out_list = []
             for i in temp_list:
                 try:
                     story_data = STORY_DATA[i]['description'] + ' ' + i
@@ -196,13 +151,134 @@ def search():
                         with open(f'{cache_path}{timestamp}{chapter[0].split("/")[-1]}', 'wb') as g:
                             data = requests.get(f'https://mcstories.com{chapter[0]}')
                             g.write(data.content)
-                    return last_search
+                    try:
+                        return last_search
+                    except:
+                        return render_template('search.html', tags=TAGS_DICT)
     else:
         out_list = []
         for i in request.form:
             out_list.append(i)
         add_favorites(out_list)
         return render_template('search.html', tags=TAGS_DICT)
+
+
+@app.route('/favorites')
+def favorites():
+    out = []
+    try:
+        temp = USER_DATA['favorites']
+        temp.sort()
+        for i in temp:
+            out.append([i, STORY_DATA[i]["author url"].split("/")[-1]])
+        return render_template('favorites.html', data=STORY_DATA, favorites=out)
+    except KeyError:
+        return "No favorites found."
+
+
+@app.route('/cache')
+def cached_list():
+    return render_template('cache.html', stories=return_cache_data('templates\\cache', 2))
+
+
+@app.route('/cache/<title>')
+def cached_story(title):
+    if title:
+        return render_template('cached_story.html', dates=return_cache_data(f'templates\\cache\\{title}', 3),
+                               title=title)
+    else:
+        return 'Missing story parameter'
+
+
+@app.route('/cache/<title>/<date>')
+def cached(title, date):
+    if title and date:
+        return render_template('cached_date.html', title=title, date=date,
+                               files=return_cache_data(f'templates\\cache\\{title}\\{date}', -1))
+    else:
+        return 'Missing date parameter'
+
+
+@app.route('/cache/<title>/<date>/<file>')
+def cached_view(title, date, file):
+    if title and date and file:
+        return render_template('cached_file.html', data=read_cached_file(date, file, title))
+    else:
+        return 'Missing file parameter'
+
+
+@app.route('/authors')
+def list_authors():
+    return render_template('authors.html', data=get_author_list())
+
+
+@app.route('/author/<author>')
+def stories_by_author(author):
+    return render_template('author.html', results=[[i, author + '.html'] for i in get_author_story_list(author)],
+                           data=STORY_DATA)
+
+
+def read_cached_file(date, file, title):
+    with open(f'templates\\cache\\{title}\\{date}\\{file}', 'rb') as g:
+        data = g.read().decode('utf-8')
+    return data
+
+
+def get_author_list():
+    authors = []
+    for story in STORY_DATA:
+        data = STORY_DATA[story]['author']
+        if data in authors:
+            pass
+        else:
+            authors.append(data)
+    return authors
+
+
+def get_author_story_list(author):
+    stories = []
+    for story in STORY_DATA:
+        if STORY_DATA[story]['author'] == author:
+            stories.append(story)
+    return stories
+
+
+def get_chapters_string(data):
+    chapters = [f'<p><a href=https://mcstories.com{i[0]}>{i[1]}</a></p>' for i in data['chapters']]
+    out_chapters = ''
+    for i in chapters:
+        out_chapters += i
+    return out_chapters
+
+
+def return_cache_data(dir_location, index_location):
+    cached_files = list_files(dir_location)
+    data = set()
+    for file in cached_files:
+        data.add(file.split('\\')[index_location])
+    return data
+
+
+def get_story_string(story, data=None, out_chapters=None):
+    if not data:
+        data = STORY_DATA[story]
+    if not out_chapters:
+        out_chapters = get_chapters_string(data)
+    out = f'<p><a href={story}>{story}</a><p><p>Tags: {data["story tags"]}</p>' \
+          f'<p>Author: <a href=https://mcstories.com/Authors/{data["author url"].split("/")[-1]}>{data["author"]}</a>' \
+          f'</p><p>Word Count: {data["word count"]}</p><p>{out_chapters}</p><p>Date Added: {data["date added"]}</p>' \
+          f'<p>Date Updated: {data["date updated"]}</p><p>Summary: {data["description"]}</p>'
+    return out
+
+
+def filter_stories_by_tags(tags, tags_rem):
+    for i in request.form:
+        if i in TAGS_DICT:
+            tags.append(i)
+        elif i in TAGS_REM:
+            tags_rem.append(i)
+    tags, temp_list = filter_story_list_by_tags(tags, tags_rem)
+    return tags, temp_list
 
 
 def filter_story_list_by_tags(tags, tags_rem):
@@ -219,77 +295,50 @@ def filter_story_list_by_tags(tags, tags_rem):
     return tags, temp_list
 
 
-@app.route('/favorites')
-def favorites():
-    out = []
-    try:
-        temp = USER_DATA['favorites']
-        temp.sort()
-        for i in temp:
-            out.append([i, STORY_DATA[i]["author url"].split("/")[-1]])
-        return render_template('favorites.html', data=STORY_DATA, favorites=out)
-    except KeyError:
-        return "No favorites found."
+def list_files(location):
+    includes = ['*.html']  # for files only
+    excludes = ['/none']  # for dirs and files
+
+    # transform glob patterns to regular expressions
+    includes = r'|'.join([fnmatch.translate(x) for x in includes])
+    excludes = r'|'.join([fnmatch.translate(x) for x in excludes]) or r'$.'
+    file_list = []
+
+    def iterate(directory):
+        for root, dirs, files in os.walk(directory):
+
+            # exclude dirs
+            dirs[:] = [os.path.join(root, d) for d in dirs]
+            dirs[:] = [d for d in dirs if not re.match(excludes, d)]
+            for d in dirs:
+                iterate(d)
+
+            # exclude/include files
+            files = [os.path.join(root, h) for h in files]
+            files = [h for h in files if not re.match(excludes, h)]
+            files = [h for h in files if re.match(includes, h)]
+
+            for filename in files:
+                file_list.append(filename)
+
+    iterate(location)
+
+    return file_list
 
 
-def get_story_string(story, data=None, out_chapters=None):
-    if not data:
-        data = STORY_DATA[story]
-    if not out_chapters:
-        out_chapters = get_chapters_string(data)
-    out = f'<p><a href={story}>{story}</a><p><p>Tags: {data["story tags"]}</p>' \
-          f'<p>Author: <a href=https://mcstories.com/Authors/{data["author url"].split("/")[-1]}>{data["author"]}</a>' \
-          f'</p><p>Word Count: {data["word count"]}</p><p>{out_chapters}</p><p>Date Added: {data["date added"]}</p>' \
-          f'<p>Date Updated: {data["date updated"]}</p><p>Summary: {data["description"]}</p>'
-    return out
+def add_favorites(favorites_to_add):
+    new_favorites = [i for i in favorites_to_add if i not in USER_DATA['favorites']]
+    for i in new_favorites:
+        USER_DATA['favorites'].append(i)
+    update_user_data()
 
 
-def get_chapters_string(data):
-    chapters = [f'<p><a href=https://mcstories.com{i[0]}>{i[1]}</a></p>' for i in data['chapters']]
-    out_chapters = ''
-    for i in chapters:
-        out_chapters += i
-    return out_chapters
-
-
-@app.route('/cache')
-def cached_list():
-    cached_files = list_files('templates\\cache')
-    stories = set()
-    for file in cached_files:
-        stories.add(file.split('\\')[2])
-    return render_template('cache.html', stories=stories)
-
-
-@app.route('/cache/<title>')
-def cached_story(title):
-    if title:
-        cached_files = list_files(f'templates\\cache\\{title}')
-        dates = set()
-        for file in cached_files:
-            dates.add(file.split('\\')[3])
-        return render_template('cached_story.html', dates=dates, title=title)
-    else:
-        return 'Missing story parameter'
-
-
-@app.route('/cache/<title>/<date>')
-def cached(title, date):
-    if title and date:
-        cached_files = list_files(f'templates\\cache\\{title}\\{date}')
-        files = set()
-        for file in cached_files:
-            files.add(file.split('\\')[-1])
-        return render_template('cached_date.html', title=title, date=date, files=files)
-    else:
-        return 'Missing date parameter'
-
-
-@app.route('/cache/<title>/<date>/<file>')
-def cached_view(title, date, file):
-    if title and date and file:
-        with open(f'templates\\cache\\{title}\\{date}\\{file}', 'rb') as g:
-            data = g.read().decode('utf-8')
-        return render_template('cached_file.html', data=data)
-    else:
-        return 'Missing file parameter'
+def get_tags_from_request(data):
+    tags = []
+    tags_rem = []
+    for i in data:
+        if i in TAGS_DICT:
+            tags.append(i)
+        elif i in TAGS_REM:
+            tags_rem.append(i)
+    return tags, tags_rem

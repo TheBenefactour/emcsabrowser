@@ -34,6 +34,9 @@
                     <button type="submit" name="{{ i[0] }}" id="{{ i[0] }}-cache">Cache Story</button>
                 </form>
                 <p>
+                    {{ data[i[0]]["title"] }}
+                </p>
+                <p>
                     <a href={{ i[0] }}>{{ i[0] }}</a>
                 </p>
                 <p>Tags: {{ data[i[0]]["story tags"] }}</p>

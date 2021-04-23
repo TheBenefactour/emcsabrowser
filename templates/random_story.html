@@ -24,6 +24,25 @@
     <p>Date Added: {{ data[i[0]]["date added"] }}</p>
     <p>Date Updated: {{ data[i[0]]["date updated"] }}</p>
     <p>Summary: {{ data[i[0]]["description"] }}</p>
+    <form method="GET">
+        <fieldset name="tags">
+            <input type="submit" label="Random Story">
+            <h2>Include Tags:</h2>
+            {% for tag in tags %}
+            <p>
+                <input type="checkbox" name="{{ tag }}" value="{{ tag }}"><label for="{{ tag }}">{{ tags[tag] }}</label>
+            </p>
+            {% endfor %}
+        </fieldset>
+        <fieldset name="tags-rem">
+            <h2>Exclude Tags:</h2>
+            {% for tag in tags %}
+            <p>
+                <input type="checkbox" name="{{ tag }}-rem" value="{{ tag }}-rem"><label for="{{ tag }}-rem">{{ tags[tag] }}</label>
+            </p>
+            {% endfor %}
+        </fieldset>
+    </form>
 </div>
 </body>
 </html>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ i }}</title>
+</head>
+<body>
+    {% for i in results %}
+    <div>
+        <p>
+            <a href="{{ i[0] }}">{{ i[0] }}</a>
+        </p>
+        <p>Tags: {{ data[i[0]]["story tags"] }}</p>
+        <p>Author:
+            <a href="https://mcstories.com/Authors/{{ i[1] }}">
+                {{ data[i[0]]["author"] }}
+            </a>
+        </p>
+        <p>Word Count: {{ data[i[0]]["word count"] }}</p>
+        {% for j in data[i[0]]["chapters"] %}
+        <p>
+            <a href="https://mcstories.com{{ j[0] }}">{{ j[1] }}</a>
+        </p>
+        {% endfor %}
+        <p>Date Added: {{ data[i[0]]["date added"] }}</p>
+        <p>Date Updated: {{ data[i[0]]["date updated"] }}</p>
+        <p>Summary: {{ data[i[0]]["description"] }}</p>
+    </div>
+    <hr class="dotted">
+    {% endfor %}
+</body>
+</html>

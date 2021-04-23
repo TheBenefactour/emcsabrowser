@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>List of All Stories</title>
+</head>
+<body>
+    <div>
+        {% for i in data %}
+        <p>
+            <a href=author/{{ i }}>{{ i }}</a>
+        </p>
+        {% endfor %}
+    </div>
+</body>
+</html>
