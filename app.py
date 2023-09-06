@@ -9,6 +9,7 @@ import datetime
 from string import ascii_uppercase
 from eldar import Query
 from flask import Flask, request, render_template
+from urllib import parse as encode_url
 
 
 def update_user_data():
@@ -231,7 +232,7 @@ def get_author_list():
         if data in authors:
             pass
         else:
-            authors.append(data)
+            authors.append([data, encode_url.quote(data)])
     return authors
 
 
