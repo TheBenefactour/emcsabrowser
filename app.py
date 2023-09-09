@@ -17,13 +17,44 @@ def update_user_data():
         json.dump(USER_DATA, g)
 
 
+def list_files(location):
+    includes = ['*.html']  # for files only
+    excludes = ['/none']  # for dirs and files
+
+    # transform glob patterns to regular expressions
+    includes = r'|'.join([fnmatch.translate(x) for x in includes])
+    excludes = r'|'.join([fnmatch.translate(x) for x in excludes]) or r'$.'
+    file_list = []
+
+    def iterate(directory):
+        for root, dirs, files in os.walk(directory):
+
+            # exclude dirs
+            dirs[:] = [os.path.join(root, d) for d in dirs]
+            dirs[:] = [d for d in dirs if not re.match(excludes, d)]
+            for d in dirs:
+                iterate(d)
+
+            # exclude/include files
+            files = [os.path.join(root, h) for h in files]
+            files = [h for h in files if not re.match(excludes, h)]
+            files = [h for h in files if re.match(includes, h)]
+
+            for filename in files:
+                file_list.append(filename)
+
+    iterate(location)
+
+    return file_list
+
+
 with open('user_data.json', 'r', encoding='utf-8') as f:
     USER_DATA = json.load(f)
 if not os.path.exists('templates\\cache\\'):
     os.mkdir('templates\\cache\\')
 
-
 LIVE = True
+RAM_CACHE = True
 ALPHA = ascii_uppercase
 INDEX_URL = 'https://raw.githubusercontent.com/TheBenefactour/emcsabrowser/main/indexed_stories.json'
 ROOT = 'http://localhost:5000/'
@@ -53,12 +84,19 @@ if LIVE:
     else:
         print('Database is up to date!')
 
+if RAM_CACHE:
+    CACHED = {}
+    cached_files = list_files('templates/cache')
+    for cached_file in cached_files:
+        with open(cached_file, mode='r', encoding='utf-8', errors='ignore') as f:
+            CACHED[cached_file] = f.read()
+    print('Cache loaded to ram!')
 
 update_user_data()
-with open('indexed_stories.json', 'r', encoding='utf-8') as f:
+with open('indexed_stories.json', mode='r', encoding='utf-8') as f:
     STORY_DATA = json.load(f)
 if os.path.exists('archived_stories.json'):
-    with open('archived_stories.json', 'r', encoding='utf-8') as f:
+    with open('archived_stories.json', mode='r', encoding='utf-8') as f:
         STORY_DATA.update(json.load(f))
 
 
@@ -113,23 +151,41 @@ def search():
                     pass
             if request.form.get('cached'):
                 files = list_files('templates\\cache')
-                for file in files:
-                    try:
-                        file_parts = file.split("\\")
-                        story_id = f'https://mcstories.com/{file_parts[2]}/index.html'
-                        author = STORY_DATA[story_id]["author url"].split("/")[-1]
-                        if [story_id, author] not in out_list:
-                            if set(STORY_DATA[story_id]['story tags']).intersection(tags) != set() or tags == 'all':
-                                if set(STORY_DATA[story_id]['story tags']).intersection(
-                                        tags_rem_form) == set() or tags_rem_form == 'none':
-                                    with open(file, 'r', encoding='utf-8') as g:
-                                        story_data = g.read()
-                                    if file_search(story_data):
-                                        story_id = f'https://mcstories.com/{file_parts[2]}/index.html'
-                                        author = STORY_DATA[story_id]["author url"].split("/")[-1]
-                                        out_list.append([story_id, author])
-                    except:
-                        pass
+                if CACHED:
+                    for file in CACHED.keys():
+                        try:
+                            file_parts = file.split("\\")
+                            story_id = f'https://mcstories.com/{file_parts[2]}/index.html'
+                            author = STORY_DATA[story_id]["author url"].split("/")[-1]
+                            if [story_id, author] not in out_list:
+                                if set(STORY_DATA[story_id]['story tags']).intersection(tags) != set() or tags == 'all':
+                                    if set(STORY_DATA[story_id]['story tags']).intersection(
+                                            tags_rem_form) == set() or tags_rem_form == 'none':
+                                        story_data = CACHED[file]
+                                        if file_search(story_data):
+                                            story_id = f'{file_parts[2]}/index.html'
+                                            author = STORY_DATA[story_id]["author url"].split("/")[-1]
+                                            out_list.append([story_id, author])
+                        except Exception as e:
+                            print(e)
+                else:
+                    for file in files:
+                        try:
+                            file_parts = file.split("\\")
+                            story_id = f'https://mcstories.com/{file_parts[2]}/index.html'
+                            author = STORY_DATA[story_id]["author url"].split("/")[-1]
+                            if [story_id, author] not in out_list:
+                                if set(STORY_DATA[story_id]['story tags']).intersection(tags) != set() or tags == 'all':
+                                    if set(STORY_DATA[story_id]['story tags']).intersection(
+                                            tags_rem_form) == set() or tags_rem_form == 'none':
+                                        with open(file, 'r', encoding='utf-8') as g:
+                                            story_data = g.read()
+                                        if file_search(story_data):
+                                            story_id = f'{file_parts[2]}/index.html'
+                                            author = STORY_DATA[story_id]["author url"].split("/")[-1]
+                                            out_list.append([story_id, author])
+                        except Exception as e:
+                            print(e)
             if out_list:
                 out_list.sort()
                 last_search = render_template('search_results.html', term=term, tags=tags, tags_rem=tags_rem_form,
@@ -294,37 +350,6 @@ def filter_story_list_by_tags(tags, tags_rem):
                     set([f'{i}-rem' for i in story_tags_set]).intersection(tags_rem) == set():
                 temp_list.append(i)
     return tags, temp_list
-
-
-def list_files(location):
-    includes = ['*.html']  # for files only
-    excludes = ['/none']  # for dirs and files
-
-    # transform glob patterns to regular expressions
-    includes = r'|'.join([fnmatch.translate(x) for x in includes])
-    excludes = r'|'.join([fnmatch.translate(x) for x in excludes]) or r'$.'
-    file_list = []
-
-    def iterate(directory):
-        for root, dirs, files in os.walk(directory):
-
-            # exclude dirs
-            dirs[:] = [os.path.join(root, d) for d in dirs]
-            dirs[:] = [d for d in dirs if not re.match(excludes, d)]
-            for d in dirs:
-                iterate(d)
-
-            # exclude/include files
-            files = [os.path.join(root, h) for h in files]
-            files = [h for h in files if not re.match(excludes, h)]
-            files = [h for h in files if re.match(includes, h)]
-
-            for filename in files:
-                file_list.append(filename)
-
-    iterate(location)
-
-    return file_list
 
 
 def add_favorites(favorites_to_add):
